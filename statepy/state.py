@@ -31,23 +31,51 @@ import inspect
 import types
 
 # Project Imports
-import ram.motion as motion
-import ext.core as core
-from ram.logloader import resolve
+
+class Event(object):
+    """
+    The action that caused a state transition, it has a type and any other
+    data you wish to tag along with it.
+
+    @type type: str
+    @ivar type: The type of the event, used in the state transition tables
+    """
+
+    def __init__(self, etype = '', **kwargs):
+        """
+        Initialize the event with its type and associated data
+
+        @type  etype: str
+        @param etype: The type of the event, used in the state transition tables
+        """
+        self.type = etype
+
+def declareEventType(name):
+    """
+    Defines an event type in a manner which will avoid collisions
+    
+    It defines it in the following format: <file>:<line> <EVENT>
+    
+    @rtype : str
+    @return: The new event type
+    """
+    stack = inspect.stack()
+    try:
+        frame = stack[1][0]
+        line = frame.f_lineno
+        fileName = frame.f_code.co_filename
+        return '%s:%d %s' % (fileName, line, name.replace(' ', '_').upper())
+    finally:
+        del stack
 
 class State(object):
     """
     Basic state class, its provides empty implementation for all the needed
     methods of a state
     """
-    def __init__(self, config = None, **subsystems):
-        if config is None:
-            config = {}
-        self._config = config
-        for name, subsystem in subsystems.iteritems():
-            if 'config' == name:
-                raise ValueError, "Subsystem cannot be named 'config'"
-            setattr(self, name, subsystem)
+    def __init__(self, **statevars):
+        for name, statevar in statevars.iteritems():
+            setattr(self, name, statevar)
 
     @staticmethod
     def transitions():
@@ -82,60 +110,6 @@ class State(object):
         @warning: Only valid when the object is created by a Machine object
         """
         raise 
-
-class FindAttempt(State):
-    """
-    Default state for finding a lost target
-    """
-
-    TIMEOUT = core.declareEventType("TIMEOUT")
-
-    def __init__(self, config = None, **kwargs):
-        State.__init__(self, config, **kwargs)
-
-    @staticmethod
-    def transitions(foundEvent, foundState, timeoutState, trans = None):
-        if trans is None:
-            trans = {}
-        trans.update({foundEvent : foundState,
-                      FindAttempt.TIMEOUT : timeoutState})
-
-        return trans
-
-    @staticmethod
-    def getattr():
-        return set(['holdDepth', 'timeout'])
-
-    def enter(self, timeout = 2):
-        # Turn off all motions, hold the current heading
-        self.motionManager.stopCurrentMotion()
-        self.controller.holdCurrentHeading()
-        if self._config.get('holdDepth', False):
-            self.controller.holdCurrentDepth()
-        self.controller.setSpeed(0)
-        self.controller.setSidewaysSpeed(0)
-
-        # Create a timer event
-        self._timeout = self._config.get('timeout', timeout)
-        # Timer will only state if the timeout is a positive number
-        # A timer of 0 will turn it off, along with any negative number
-        if self._timeout > 0:
-            self.timer = \
-                self.timerManager.newTimer(FindAttempt.TIMEOUT, self._timeout)
-            self.timer.start()
-        elif self._timeout < 0:
-            # A negative timer will automatically move to the timeoutState
-            self.timer = None
-            self.publish(FindAttempt.TIMEOUT, core.Event())
-        else:
-            # A timer of zero will turn off the timer and will only allow
-            # FindAttempt to exit by finding the target
-            self.timer = None
-
-    def exit(self):
-        if self.timer is not None:
-            self.timer.stop()
-        self.motionManager.stopCurrentMotion()
         
 class End(State):
     """
@@ -156,128 +130,99 @@ class Branch(object):
         @type state: ram.ai.state.State
         @param state: The state to branch to
 
-        @type branchingEvent: core.Event
+        @type branchingEvent: Event
         @param branchingEvent: The event that caused the branch, if any
         """
         self.state = state
         self.branchingEvent = branchingEvent
 
-class Machine(core.Subsystem):
+class Machine(object):
     """
     An event based finite state machine.
     
-    This machine works with graph of ram.ai.state.State classes.  This graph
+    This machine works with graph of statepy.State classes.  This graph
     represents a state machine.  There can only be one current state at a time.
     When events are injected into the state machine the currents states 
     transition table determines which state to advance to next.
     
-    Requires the following subsystems:
-     - ext.core.QueuedEventHub
-    
-    @type _root: ram.ai.state.State
+    @type _root: statepy.State
     @ivar _root: The first state of the Machine
     
-    @type _currentState: ram.ai.state.State
+    @type _currentState: statepy.State
     @ivar _currentState: The current state which is processing events
     
     @type _started: boolean
     @ivar _started: The Machine will not process events unless started
-    
-    @type _qeventHub: ext.core.QueuedEventHub
-    @ivar _qeventHub: The thread safe to subscribe to events through
-    
-    @type _previousEvent: ext.core.Event
+
+    @type _started: boolean
+    @ivar _started: True when the Machine is complete (ie. currentState = None)
+        
+    @type _previousEvent: Event
     @ivar _previousEvent: The last event injected into the state machine
-    
-    @type _connections: [ext.core.EventConnection]
-    @ivar _connections: The list of event connections for current state
-    
-    @type _subsystems: {str : ext.core.Subsystem }
-    @ivar _subsystems: The subsystems provided to each state
+
+    @todo statevars, branches
     """
     
-    STATE_ENTERED = core.declareEventType('STATE_ENTERED')
-    STATE_EXITED = core.declareEventType('STATE_EXITED')
-    COMPLETE = core.declareEventType('COMPLETE')
+    STATE_ENTERED = declareEventType('STATE_ENTERED')
+    STATE_EXITED = declareEventType('STATE_EXITED')
+    COMPLETE = declareEventType('COMPLETE')
     
-    def __init__(self, cfg = None, deps = None):
-        if deps is None:
-            deps = []
-        if cfg is None:
-            cfg = {}
+    def __init__(self, statevars = None):
+        """
+        The constructor for the Machine class.
 
-        core.Subsystem.__init__(self, cfg.get('name', 'StateMachine'),
-                                deps)
+        @type  statevars: dict
+        @param statevars: A dictionary of the object variables given to states
+        """
+        
+        if statevars is None:
+            statevars = {}
 
         # Set default instance values
-        self._config = cfg
         self._root = None
         self._currentState = None
         self._started = False
         self._complete = False
-        self._qeventHub = None
-        self._previousEvent = core.Event()
-        self._connections = []
-        self._subsystems = {}
+        self._previousEvent = Event()
+        self._statevars = {}
+        self._startStatevars = {}
         self._branches = {}
-
-        self._configCheck(cfg.get('States', {}))
         
-        # Deal with Subsystems
-        self._qeventHub = core.Subsystem.getSubsystemOfType(core.QueuedEventHub,
-                                                            deps)
-        for subsystem in deps:
-            # Make first letter lower case
-            name = subsystem.getName()
-            name = name[0].lower() + name[1:]
-            
-            # Set subsystem up
-            self._subsystems[name] = subsystem
-            
-            # Handle special AI case where it needs a reference to us
-            if name.lower() == 'ai' and hasattr(subsystem, '_stateMachine'):
-                subsystem._stateMachine = self
-
-    def _configCheck(self, cfg):
-        for name, options in cfg.iteritems():
-            if name != "INCLUDE" and name != "INCLUDE_LOADED":
-                try:
-                    class_ = resolve(name)
-                    attr = class_.getattr()
-                    for item in options.iterkeys():
-                        if item not in attr:
-                            raise Exception("'%s' is not in %s." % (item, class_))
-                except ImportError:
-                    raise ImportError("There is no class %s." % (name))
-
-    def update(self, timeStep):
-        print 'STATE UPDATE'
-	
-    def backgrounded(self):
-        return True
-
-    def background(self, interval):
-        # Add really nasty cirular reference to the AI subsystem
-        for name, sys in self._subsystems.iteritems():
-            if name.lower() == 'ai' and hasattr(sys, '_stateMachine'):
-                sys._stateMachine = self
-
-    def unbackground(self, force):
-        # Remove really nasty cirular reference to the AI subsystem
-        for name, sys in self._subsystems.iteritems():
-            if name.lower() == 'ai' and hasattr(sys, '_stateMachine'):
-                sys._stateMachine = None
-
     def currentState(self):
         return self._currentState
 
-    def start(self, startState):
+    def start(self, startState, statevars = None):
         """
         Starts or branches the state machine with the given state
         
         If the given state is really a branch, it will branch to that state
         instead.
+
+        @type  startState: State
+        @param startState: The first state for the machine to enter
+
+        @type  statevars: dict
+        @param statevars: An additional dictionary of variables for the State
         """
+
+        # Remove the previous startStatevars from our list of variables
+        for key in self._startStatevars.iterkeys():
+            del self._statevars[key]
+
+        if statevars is not None:
+            # Ensure there is no overlap
+            currentVars = set(self._statevars.keys())
+            newVars = set(statevars.keys())
+
+            intersection = currentVars.intersection(newVars)
+            if len(intersection) != 0:
+                msg = "ERROR: statevars already contains: %s" % interection
+                raise statepy.StatePyException(msg)
+            
+            self._startStatevars = statevars
+
+            # Merge the statevars
+            self._statevars.update(statevars)
         
         if Branch == type(startState):
             # Determine if we are branching
@@ -299,7 +244,7 @@ class Machine(core.Subsystem):
             self._exitState()
         
         self._started = False
-        self._previousEvent = core.Event()
+        self._previousEvent = Event
         self._root = None
         self._currentState = None
         self._complete = False
@@ -315,14 +260,14 @@ class Machine(core.Subsystem):
         self._branches[stateType].stop()
         del self._branches[stateType]
 
-    def injectEvent(self, event, _sendToBranches = False):
+    def injectEvent(self, rawEvent, _sendToBranches = False):
         """
         Sends an event into the state machine
         
         If currents states transition table has an entry for events of this 
         type this will cause a transition
         
-        @type  event: ext.core.Event
+        @type  event: Event or str
         @param event: A new event for the state machine to process 
         
         @type _sendToBranches: bool
@@ -333,8 +278,14 @@ class Machine(core.Subsystem):
         # caused the transition, we can be notified again with the same event!
         # This check here prevents that event from causing an unwanted 
         # transition.
-        if event == self._previousEvent:
+        if rawEvent == self._previousEvent:
             return
+
+        # Make sure the event is of the right class
+        if isinstance(rawEvent, Event):
+            event = rawEvent
+        else:
+            event = Event(rawEvent)
         
         if not self._started:
             raise Exception("Machine must be started")
@@ -393,60 +344,31 @@ class Machine(core.Subsystem):
         Does all the house keeping when entering a new state
         """
         
-        # Look up config based on full dotted name of state class
-        fullClassName = '%s.%s' % (newStateClass.__module__, 
-                                   newStateClass.__name__)
-        stateCfg = self._config.get('States', {})
-
-        # Get the superclasses of the state
-        #stateList = resolve(fullClassName).__mro__
-
-        # Load the superclass config values, skipping object
-        #config = {}
-        #for index in xrange(len(stateList) - 2, 0, -1):
-            #print "loading", stateList[index]
-        #    config.update(stateCfg.get(stateList[index], {}))
-
-        # Load this states config values
-        #config.update(stateCfg.get(fullClassName, {}))
-        config = stateCfg.get(fullClassName, {})
-        
-        # Add self to the list of subsystems
-        subsystems = self._subsystems
-        name = self.getName()
-        subsystems[name[0].lower() + name[1:]] = self
+        # CONFIG LOOKUP USE TO HAPPEN HERE
         
         # Create state instance from class, make sure to pass all subsystems
         # along as well
-        newState = newStateClass(config, **self._subsystems)
-        newState.publish = self.publish
+        newState = newStateClass(**self._statevars)
         
         # Subscribe to every event of the desired type
+        # <EVENT SUBSCRIBTION USE TO HAPPEN HERE>
         transitionTable = newState.transitions()
-        if self._qeventHub is not None:
-            for eventType in transitionTable.iterkeys():
-                if type(eventType) == type(self._enterState):
-                    raise Exception("Event type is actually a function")
-                else:
-                    conn = self._qeventHub.subscribeToType(eventType, 
-                                                           self.injectEvent)
-                    self._connections.append(conn)
         
         # Actual enter the state and record it as our new current state
         self._currentState = newState
         self._currentState.enter()
         
         # Notify everyone we just entered the state
-        event = core.StringEvent()
-        event.string = fullClassName
-        self.publish(Machine.STATE_ENTERED, event)
+        #fullClassName = '%s.%s' % (self._currentState.__class__.__module__, 
+        #                           self._currentState.__class__.__name__)
+        # NOTIFY STATE BEING ENTERED
         
         # If we are in a state with no way out, exit the state and mark ourself
         # complete
         if 0 == len(transitionTable):
             self._exitState()
             self._complete = True
-            self.publish(Machine.COMPLETE, core.Event())
+            # NOTIFY MACHINE BEING COMPLETE
         
     def _exitState(self):
         """
@@ -454,16 +376,9 @@ class Machine(core.Subsystem):
         """
         self._currentState.exit()
                 
-        for conn in self._connections:
-            conn.disconnect()
-        self._connections = []
-                
-                
-        changeEvent = core.StringEvent()
-        fullClassName = '%s.%s' % (self._currentState.__class__.__module__, 
-                                   self._currentState.__class__.__name__)
-        changeEvent.string = fullClassName
-        self.publish(Machine.STATE_EXITED, changeEvent)
+        # NOTIFY STATE BEING EXIT
+        #fullClassName = '%s.%s' % (self._currentState.__class__.__module__, 
+        #                           self._currentState.__class__.__name__)
         
         self._currentState = None
 
@@ -472,10 +387,7 @@ class Machine(core.Subsystem):
             raise Exception("Already branched to this state")
         
         # Create new state machine
-        deps = core.SubsystemList()
-        for subsystem in self._subsystems.itervalues():
-            deps.append(subsystem)
-        branchedMachine = Machine(self._config, deps)
+        branchedMachine = Machine(self._statevars)
 
         # Start it up with the proper state
         branchedMachine.start(nextState)
@@ -589,5 +501,3 @@ class Machine(core.Subsystem):
     @staticmethod
     def _dottedName(cls):
         return cls.__module__.replace('.','_') + '_' + cls.__name__
-    
-core.registerSubsystem('StateMachine', Machine)

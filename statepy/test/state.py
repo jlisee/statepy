@@ -32,13 +32,9 @@ import unittest
 import StringIO
 
 # Project Imports
-import ext.core as core
-import ram.ai.state as state
-import ram.ai.subsystem as aisys
-import ram.motion as motion
-import ram.logloader as logloader
+import statepy.state as state
+#import ram.logloader as logloader
 
-import ram.test.ai.support as aisupport
 
 # --------------------------------------------------------------------------- #
 #                      S U P P P O R T    O B J E C T S                       #
@@ -53,18 +49,9 @@ class Reciever(object):
         self.event = event
         self.called = True
 
-class MockEventSource(core.EventPublisher):
-    THING_UPDATED = core.declareEventType('THING_UPDATED')
-    ANOTHER_EVT = core.declareEventType('ANOTHER_EVT')
-    
-    def __init__(self, eventHub = None):
-        core.EventPublisher.__init__(self, eventHub)
-        
-    def sendEvent(self, etype, **kwargs):
-        event = core.Event()
-        for key, value in kwargs.iteritems():
-            setattr(event, key, value)
-        self.publish(etype, event)
+class MockEventSource(object):
+    THING_UPDATED = state.declareEventType('THING_UPDATED')
+    ANOTHER_EVT = state.declareEventType('ANOTHER_EVT')
 
 class TrackedState(state.State):
     """Records whether a state has been entered or exited"""
@@ -197,8 +184,7 @@ class TestStateMachine(unittest.TestCase):
         self.machine.start(Start)
 
     def _makeEvent(self, etype, **kwargs):
-        event = core.Event()
-        event.type = etype
+        event = state.Event(etype)
         for key, value in kwargs.iteritems():
             setattr(event, key, value)
         return event
@@ -228,8 +214,6 @@ class TestStateMachine(unittest.TestCase):
 
         # Make sure the transition function was called
         self.assertNotEquals(None, startState.event)
-        # TODO: Why are you failing!!!
-        #self.assertEquals(startState.event.sender, self.machine)
         self.assertEquals(startState.event.value, 1)
 
     def testStop(self):
@@ -281,10 +265,10 @@ class TestStateMachine(unittest.TestCase):
         self.assertEquals(1, newstate.enterCount)
        
     def testComplete(self):
-        enterRecv = Reciever()
-        exitRecv = Reciever()
-        self.machine.subscribe(state.Machine.STATE_ENTERED, enterRecv)
-        self.machine.subscribe(state.Machine.STATE_EXITED, exitRecv)
+#        enterRecv = Reciever()
+#        exitRecv = Reciever()
+#        self.machine.subscribe(state.Machine.STATE_ENTERED, enterRecv)
+#        self.machine.subscribe(state.Machine.STATE_EXITED, exitRecv)
         
         # Ensure that completion is detected
         self.assertEqual(False, self.machine.complete)
@@ -295,52 +279,52 @@ class TestStateMachine(unittest.TestCase):
         self.assertEqual(None, self.machine.currentState())
         
         # Ensure we entered and exited the exit state
-        endName = '%s.%s' % (End.__module__, End.__name__)
-        self.assertEquals(endName, enterRecv.event.string)
-        self.assertEquals(endName, exitRecv.event.string)
+#        endName = '%s.%s' % (End.__module__, End.__name__)
+#        self.assertEquals(endName, enterRecv.event.string)
+#        self.assertEquals(endName, exitRecv.event.string)
 
-    def testEvents(self):
-        enterRecv = Reciever()
-        exitRecv = Reciever()
-        completeRecv = Reciever()
-        self.machine.subscribe(state.Machine.STATE_ENTERED, enterRecv)
-        self.machine.subscribe(state.Machine.STATE_EXITED, exitRecv)
-        self.machine.subscribe(state.Machine.COMPLETE, completeRecv)
+#    def testEvents(self):
+#        enterRecv = Reciever()
+#        exitRecv = Reciever()
+#        completeRecv = Reciever()
+#        self.machine.subscribe(state.Machine.STATE_ENTERED, enterRecv)
+#        self.machine.subscribe(state.Machine.STATE_EXITED, exitRecv)
+#        self.machine.subscribe(state.Machine.COMPLETE, completeRecv)
 
-        startState = self.machine.currentState()
-        self.machine.injectEvent(self._makeEvent("Change"))
-        nextState = self.machine.currentState()
+#        startState = self.machine.currentState()
+#        self.machine.injectEvent(self._makeEvent("Change"))
+#        nextState = self.machine.currentState()
 
-        self.assertNotEqual(startState, nextState)
+#        self.assertNotEqual(startState, nextState)
         
         # Check enter event
-        nextStateName = '%s.%s' % (nextState.__class__.__module__,
-                                   nextState.__class__.__name__)
-        eventStr = enterRecv.event.string
-        self.assertEquals(state.Machine.STATE_ENTERED, enterRecv.event.type)
-        self.assertEquals(self.machine, enterRecv.event.sender)
-        self.assertEquals(nextStateName, eventStr)
+#        nextStateName = '%s.%s' % (nextState.__class__.__module__,
+#                                   nextState.__class__.__name__)
+#        eventStr = enterRecv.event.string
+#        self.assertEquals(state.Machine.STATE_ENTERED, enterRecv.event.type)
+#        self.assertEquals(self.machine, enterRecv.event.sender)
+#        self.assertEquals(nextStateName, eventStr)
         
         # Ensure the state resolves to the proper state
-        self.assertEqual(nextState.__class__, logloader.resolve(eventStr))
+#        self.assertEqual(nextState.__class__, logloader.resolve(eventStr))
 
         # Check exit event
-        startStateName = '%s.%s' % (startState.__class__.__module__,
-                                   startState.__class__.__name__)
-        eventStr = exitRecv.event.string
-        self.assertEquals(state.Machine.STATE_EXITED, exitRecv.event.type)
-        self.assertEquals(self.machine, exitRecv.event.sender)
-        self.assertEquals(startStateName, exitRecv.event.string)
+#        startStateName = '%s.%s' % (startState.__class__.__module__,
+#                                   startState.__class__.__name__)
+#        eventStr = exitRecv.event.string
+#        self.assertEquals(state.Machine.STATE_EXITED, exitRecv.event.type)
+#        self.assertEquals(self.machine, exitRecv.event.sender)
+#        self.assertEquals(startStateName, exitRecv.event.string)
         
         # Ensure the state resolves to the proper state
-        self.assertEqual(startState.__class__, logloader.resolve(eventStr))
+#        self.assertEqual(startState.__class__, logloader.resolve(eventStr))
         
         # Check completion event
-        self.machine.injectEvent(self._makeEvent(MockEventSource.ANOTHER_EVT))
-        self.machine.injectEvent(self._makeEvent("Start"))
+#        self.machine.injectEvent(self._makeEvent(MockEventSource.ANOTHER_EVT))
+#        self.machine.injectEvent(self._makeEvent("Start"))
         
-        self.assertEquals(state.Machine.COMPLETE, completeRecv.event.type)
-        self.assertEquals(self.machine, completeRecv.event.sender)
+#        self.assertEquals(state.Machine.COMPLETE, completeRecv.event.type)
+#        self.assertEquals(self.machine, completeRecv.event.sender)
         
     def testDeclaredEvents(self):
         startState = self.machine.currentState()
@@ -359,60 +343,19 @@ class TestStateMachine(unittest.TestCase):
         # Make sure the transition function was called
         self.assertNotEquals(None, startState.thingUpdatedEvent)
         self.assertEquals(startState.thingUpdatedEvent.value, 4)
+
+        # TODO: test variable passing
+#    def testSubsystemPassing(self):
+#        eventHub = core.EventHub("EventHub")
+#        qeventHub = core.QueuedEventHub(eventHub, "QueuedEventHub")
+#        machine = state.Machine(deps = [eventHub, qeventHub])
         
-    def testEventHub(self):
-        eventHub = core.EventHub()
-        qeventHub = core.QueuedEventHub(eventHub)
-        mockEventSource = MockEventSource(eventHub)
-        
-        machine = state.Machine(deps = [eventHub, qeventHub])
-        machine.start(Start)
-        
-        # Send an event, and make sure it does get through until the queue
-        # releases it
-        mockEventSource.sendEvent(MockEventSource.ANOTHER_EVT, value = 20)
-        startState = machine.currentState()
-        self.assertEquals(Start, type(startState))
-        
-        # Release events and make sure we have transition properly
-        qeventHub.publishEvents()
-        self.assertEquals(QueueTestState, type(machine.currentState()))
-        self.assert_(startState.anotherEvtEvent)
-        self.assertEquals(20, startState.anotherEvtEvent.value)
-        
-        # Fire off another event and make sure we haven't gone anywhere
-        mockEventSource.sendEvent(MockEventSource.THING_UPDATED, value = 34)
-        qeventHub.publishEvents()
-        self.assertEquals(QueueTestState, type(machine.currentState()))
-        
-    def testConfig(self):
-        cfg = { 
-            'param' : 5,
-            'States' : {
-                'state.StateTestConfig' : {
-                    'val' : 10,
-                    'other' : 'job'
-                }
-            }
-        }
-        machine = state.Machine(cfg = cfg)
-        
-        machine.start(StateTestConfig)
-        current = machine.currentState()
-        self.assertEqual(10, current.getConfig('val'))
-        self.assertEqual('job', current.getConfig('other'))
-        
-    def testSubsystemPassing(self):
-        eventHub = core.EventHub("EventHub")
-        qeventHub = core.QueuedEventHub(eventHub, "QueuedEventHub")
-        machine = state.Machine(deps = [eventHub, qeventHub])
-        
-        machine.start(Start)
-        startState = machine.currentState()
+#        machine.start(Start)
+#        startState = machine.currentState()
         
         # Check for subsystems
-        self.assertEquals(eventHub, startState.eventHub)
-        self.assertEquals(qeventHub, startState.queuedEventHub)
+#        self.assertEquals(eventHub, startState.eventHub)
+#        self.assertEquals(qeventHub, startState.queuedEventHub)
     
     def testWriteGraph(self):
         mockFile = StringIO.StringIO()
@@ -525,7 +468,7 @@ class TestStateMachine(unittest.TestCase):
         
     def testDoubleBranchTransitions(self):
         # Start us up
-        self.machine.start(FirstParent)
+        self.machine.start(FirstParent, {'stateMachine' : self.machine})
         self.assertEqual(FirstParent, type(self.machine.currentState()))
         
         self.machine.injectEvent(self._makeEvent("GO", value = 1))
@@ -537,100 +480,13 @@ class TestStateMachine(unittest.TestCase):
         
         cstate = branch.currentState()
         self.assertEqual(First, type(cstate))
-        
-    def testAiSet(self):
-        ai = aisys.AI()
-        machine = state.Machine(deps = [ai])
-        self.assertEquals(machine, ai.mainStateMachine)
-        
+                
 # Testing of State Class
-class StateTestConfig(state.State):
-    @staticmethod
-    def transitions():
-        return {'TEST' : StateTestConfig }
-    @staticmethod
-    def getattr():
-        return set(['val', 'other'])
-    def getConfig(self, val):
-        return self._config[val]
-
 class TestState(unittest.TestCase):
-    def testSubsystemArgs(self):
+    def testStartArgs(self):
         s = state.State(a = 5, bob = 'A')
         self.assertEqual(5, s.a)
         self.assertEqual('A', s.bob)
-        
-        # Make sure config isn't considered a subsystem
-        s = state.State(config = 5)
-        self.assertFalse(hasattr(s, 'config'))
-        
-    def testConfig(self):
-        s = StateTestConfig({'ram' : 50}, john = 10)
-        self.assertEqual(10, s.john)
-        self.assertFalse(hasattr(s, 'config'))
-        
-        self.assertEqual(50, s.getConfig('ram'))
-        
-    def testPublish(self):
-        self.called = False
-        self.sender = None
-        self.type = None
-        
-        def reciever(event):
-            self.called = True
-            self.type = event.type
-            self.sender = event.sender
-        
-        machine = state.Machine()
-        machine.start(Start)
-        
-        machine.subscribe("TestEvent", reciever)
-        machine.currentState().publish("TestEvent", core.Event())
-        
-        
-        self.assert_(self.called)
-        self.assertEqual("TestEvent", self.type)
-        self.assertEqual(machine, self.sender)
-        
-class TestFindAttempt(aisupport.AITestCase):
-    OBJECT_FOUND = core.declareEventType('OBJECT_FOUND')
-
-    class OriginalState(state.State):
-        @staticmethod
-        def transitions():
-            return {'DUMMY' : 'TRANSITION'}
-
-    class TimeoutState(state.State):
-        @staticmethod
-        def transitions():
-            return {'DUMMY' : 'TRANSITION'}
-
-    class FindAttemptState(state.FindAttempt):
-        @staticmethod
-        def transitions():
-            return state.FindAttempt.transitions(TestFindAttempt.OBJECT_FOUND,
-                                                 TestFindAttempt.OriginalState,
-                                                 TestFindAttempt.TimeoutState)
-
-    def injectEventFound(self):
-        self.injectEvent(TestFindAttempt.OBJECT_FOUND)
-    def injectEventTimeout(self):
-        # TODO: Real timer test
-        self.releaseTimer(state.FindAttempt.TIMEOUT)
-
-    def setUp(self):
-        aisupport.AITestCase.setUp(self)
-        self.machine.start(TestFindAttempt.FindAttemptState)
-
-    def testFound(self):
-        self.assertCurrentState(TestFindAttempt.FindAttemptState)
-        self.injectEventFound()
-        self.assertCurrentState(TestFindAttempt.OriginalState)
-
-    def testTimeout(self):
-        self.assertCurrentState(TestFindAttempt.FindAttemptState)
-        self.injectEventTimeout()
-        self.assertCurrentState(TestFindAttempt.TimeoutState)
                 
 if __name__ == '__main__':
     unittest.main()

@@ -38,10 +38,10 @@ import imp
 import unittest
 
 # Project Imports
-import ram.test
+import statepy.test
 
 def importFromPath(path):
-    testDir = os.path.dirname(ram.test.__file__)
+    testDir = os.path.dirname(statepy.test.__file__)
     
     # Import Test Module
     (search_path, name) = os.path.split(path)
@@ -64,7 +64,7 @@ def main(argv = None):
         
     testLoader = unittest.TestLoader()
     suite = unittest.TestSuite()   
-    testDir = os.path.dirname(ram.test.__file__)
+    testDir = os.path.dirname(statepy.test.__file__)
     
     # Recursively walk the path 
     for root, dirs, files in os.walk(testDir):

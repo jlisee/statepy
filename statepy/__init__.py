@@ -27,3 +27,11 @@
 # File: statepy/__init__.py
 
 # This file initentionaly left blank
+
+class StatePyException(Exception):
+    """
+    The exception class for StatePy
+    """
+    
+    def __init__(self, *args, **kwargs):
+        Exception.__init__(self, *args, **kwargs)
