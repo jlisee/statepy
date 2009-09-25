@@ -29,11 +29,11 @@
 # STD Imports
 
 # Project Imports
-import ext.core as core
-import ram.ai.state as state
+import statepy
+import statepy.state as state
 
 # Special event that denotes 
-TIMEOUT = core.declareEventType('TIMEOUT')        
+TIMEOUT = state.declareEventType('TIMEOUT')        
 
 class Next(state.State):
     """
@@ -53,40 +53,105 @@ class End(state.State):
     """
     pass
 
+class TaskManager(state.State):
+    """
+    Basic implementation of a task manager which provides the next task
+    in a list of tasks.  This can be replaced by any kind system you want,
+    including one that provides dynamic ordering, unlike the fixed upon
+    contruction order provided here.
+    """
+    def __init__(self, taskOrder, failureTasks = None):
+        """
+        @type  taskOrder: [statepy.task.Task]
+        @param taskOrder: An ordered list of tasks.
+
+        @type  failureTasks: {statepy.state.Task : statepy.state.State}
+        @param failureTasks: Maps a task to the state you go into upon failure
+        """
+
+        # Build list of next states
+        self._nextTaskMap = {}
+        self._taskOrder = []
+
+        for i, taskClass  in enumerate(taskOrder):
+            # Determine which task is really next
+            nextTaskClass = End
+            if i != (len(taskOrder) - 1):
+                nextTaskClass = taskOrder[i + 1]
+            
+            # Store the results
+            self._nextTaskMap[taskClass] = nextTaskClass
+            
+            # Record the current class
+            self._taskOrder.append(taskClass)
+            
+        # Build list of failure tasks
+        self._failureTaskMap = {}
+        if failureTasks is not None:
+            self._failureTaskMap = failureTasks
+
+    def getNextTask(self, task):
+        """
+        Returns the task which will be transitioned to when the given task 
+        transitions to the next task. Denoted by task.Next state in the current
+        Task's transition table.
+        """
+        return self._nextTaskMap[task]
+    
+    def getFailureState(self, task):
+        """
+        Returns the state which will be transitioned to when the given task
+        fails in an unrecoverable way.  Recoverable failure are handled 
+        internally by that task. 
+        """
+        return self._failureTaskMap.get(task, None)
+
+    
+
 class Task(state.State):
     """
     Encapsulates a single AI task, like completing an objective.  It allows for
     the implementation and testing of such tasks without concern for what comes
     before, or after said task.
-    
-    It queries the AI subsystem to ask which state is after itself, and 
-    replaces the marker ram.ai.task.Next state with that state. It also also
-    handles all the timeout machinery internally.
+
+    It expects a 'taskManager' which provides 'getNextTask' and
+    'getFailureState' methods.  These all the Task to setup its transition
+    table at runtime based upon the desired task ordering.
     """
-    def __init__(self, config = None, **subsystems):
+
+    # Change me if you wish to have the task manager called something different
+    TASK_MANAGER_NAME = "taskManager"
+    
+    def __init__(self, **statevars):
         # Call the super class
-        state.State.__init__(self, config, **subsystems)
+        state.State.__init__(self, **statevars)
+        print statevars
+        # Ensure that we have a task manager present
+        if not statevars.has_key(Task.TASK_MANAGER_NAME):
+            msg = 'No TaskManager of name "%s" provided to Task State' % Task.TASK_MANAGER_NAME
+            raise statepy.StatePyException(msg)
         
         # Dynamically create our event
-        self._timeoutEvent = core.declareEventType(
-            'TIMEOUT_' + self.__class__.__name__)
+        #self._timeoutEvent = core.declareEventType(
+        #    'TIMEOUT_' + self.__class__.__name__)
         
         # From the AI grab our next task
-        self._nextState = self.ai.getNextTask(type(self))
-        self._failureState = self.ai.getFailureState(type(self))
+        self._taskManager = statevars[Task.TASK_MANAGER_NAME]
+        self._nextState = self._taskManager.getNextTask(type(self))
+        self._failureState = self._taskManager.getFailureState(type(self))
     
         # Timeout related values, set later on
-        self._hasTimeout = False
-        self._timeoutDuration = None
-        self._timer = None
+        #self._hasTimeout = False
+        #self._timeoutDuration = None
+        #self._timer = None
     
-    @property
-    def timeoutEvent(self):
-        return self._timeoutEvent
+    #@property
+    #def timeoutEvent(self):
+    #    return self._timeoutEvent
     
-    @property
-    def timeoutDuration(self):
-        return self._timeoutDuration
+    #@property
+    #def timeoutDuration(self):
+    #    return self._timeoutDuration
         
     def transitions(self):
         """
@@ -98,10 +163,9 @@ class Task(state.State):
         for eventType, nextState in baseTrans.iteritems():
             # Catch the timeout event and replace with our class specific 
             # timeout event type
-            if eventType == TIMEOUT:
-                eventType = self._timeoutEvent
-                self._hasTimeout = True
-                
+            #if eventType == TIMEOUT:
+            #    eventType = self._timeoutEvent
+            #    self._hasTimeout = True
             
             if nextState == Next:
                 # If the next state is the special Next marker state, swap it 
@@ -119,23 +183,23 @@ class Task(state.State):
             
         return newTrans
 
-    @staticmethod
-    def getattr():
-        return set(['timeout'])
+#    @staticmethod
+#    def getattr():
+#        return set(['timeout'])
     
-    def enter(self, defaultTimeout = None):
-        if self._hasTimeout:
+#    def enter(self, defaultTimeout = None):
+#        if self._hasTimeout:
             # Get timeout duration from configuration file
-            if defaultTimeout is None:
-                self._timeoutDuration = self._config['timeout']
-            else:
-                self._timeoutDuration = self._config.get('timeout', 
-                                                          defaultTimeout)
+#            if defaultTimeout is None:
+#                self._timeoutDuration = self._config['timeout']
+#            else:
+#                self._timeoutDuration = self._config.get('timeout', 
+#                                                          defaultTimeout)
             # Start our actual timeout timer
-            self._timer = self.timerManager.newTimer(self._timeoutEvent, 
-                                                    self._timeoutDuration)
-            self._timer.start()
+#            self._timer = self.timerManager.newTimer(self._timeoutEvent, 
+#                                                    self._timeoutDuration)
+#            self._timer.start()
             
-    def exit(self):
-        if self._timer is not None:
-            self._timer.stop()
+#    def exit(self):
+#        if self._timer is not None:
+#            self._timer.stop()

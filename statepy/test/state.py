@@ -344,19 +344,22 @@ class TestStateMachine(unittest.TestCase):
         self.assertNotEquals(None, startState.thingUpdatedEvent)
         self.assertEquals(startState.thingUpdatedEvent.value, 4)
 
-        # TODO: test variable passing
-#    def testSubsystemPassing(self):
-#        eventHub = core.EventHub("EventHub")
-#        qeventHub = core.QueuedEventHub(eventHub, "QueuedEventHub")
-#        machine = state.Machine(deps = [eventHub, qeventHub])
+    # TODO: test variable passing
+    def testSubsystemPassing(self):
+        vara = "A"
+        varB = 10
+        statevars = {"a" : vara, "B" : varB}
+        machine = state.Machine(statevars = statevars)
         
-#        machine.start(Start)
-#        startState = machine.currentState()
+        machine.start(Start)
+        startState = machine.currentState()
         
         # Check for subsystems
-#        self.assertEquals(eventHub, startState.eventHub)
-#        self.assertEquals(qeventHub, startState.queuedEventHub)
-    
+        self.assert_(hasattr(startState, 'a'))
+        self.assertEquals(vara, startState.a)
+        self.assert_(hasattr(startState, 'B'))
+        self.assertEquals(varB, startState.B)
+            
     def testWriteGraph(self):
         mockFile = StringIO.StringIO()
         state = Start

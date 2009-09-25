@@ -188,6 +188,9 @@ class Machine(object):
         self._startStatevars = {}
         self._branches = {}
         
+        # Load up the arguments
+        self._statevars = statevars
+        
     def currentState(self):
         return self._currentState
 

@@ -30,27 +30,21 @@
 import unittest
 
 # Project Imports
-import ext.core as core
-import ram.ai as ai
-import ram.ai.subsystem
-import ram.ai.state as state
-import ram.ai.task as task
-from ram.logloader import resolve
+import statepy.state as state
+import statepy.task as task
 
-import ram.test.ai.support as support
+EVENT_A = state.declareEventType('A')
+EVENT_B = state.declareEventType('B')
+EVENT_C = state.declareEventType('C')
+EVENT_D = state.declareEventType('D')
+EVENT_E = state.declareEventType('E')
+EVENT_F = state.declareEventType('F')
 
-EVENT_A = core.declareEventType('A')
-EVENT_B = core.declareEventType('B')
-EVENT_C = core.declareEventType('C')
-EVENT_D = core.declareEventType('D')
-EVENT_E = core.declareEventType('E')
-EVENT_F = core.declareEventType('F')
-
-EVENT_B_FAIL = core.declareEventType('B_FAIL')
-EVENT_C_FAIL = core.declareEventType('C_FAIL')
+EVENT_B_FAIL = state.declareEventType('B_FAIL')
+EVENT_C_FAIL = state.declareEventType('C_FAIL')
 
 class TaskA(task.Task):
-    DEFAULT_TIMEOUT = 16
+    #DEFAULT_TIMEOUT = 16
     @staticmethod
     def _transitions():
         return {EVENT_A : task.Next,
@@ -58,7 +52,8 @@ class TaskA(task.Task):
                 task.TIMEOUT : task.Next }
         
     def enter(self):
-        task.Task.enter(self, TaskA.DEFAULT_TIMEOUT)
+        #task.Task.enter(self, TaskA.DEFAULT_TIMEOUT)
+        pass
 
 class TaskB(task.Task):
     @staticmethod
@@ -87,37 +82,29 @@ class CRecovery(state.State):
     def transitions():
         return {EVENT_F : CRecovery }
 
-class TestTask(support.AITestCase):
-    CFG_TIMEOUT = 47
+class TestTask(unittest.TestCase):
+    #CFG_TIMEOUT = 47
     
     def setUp(self):
-        cfg = {
-            'Ai' : {
-                'taskOrder' : ['ram.test.ai.task.TaskA',
-                               'ram.test.ai.task.TaskB',
-                               'ram.test.ai.task.TaskC'],
-                'failureTasks' : {
-                    'ram.test.ai.task.TaskB' : 'ram.test.ai.task.BRecovery',
-                    'ram.test.ai.task.TaskC' : 'ram.test.ai.task.CRecovery'
-                 }
-            },
-            'StateMachine' : { 
-                'States' : { 
-                    'ram.test.ai.task.TaskB' : { 
-                        'timeout' : TestTask.CFG_TIMEOUT
-                        }
-                    }
-                }
-            }
-        support.AITestCase.setUp(self, cfg = cfg)
+        taskOrder = [TaskA, TaskB, TaskC]
+        failureTasks = {TaskB : BRecovery, TaskC : CRecovery }
 
-        # We have to import these from the global level, because for some 
-        # reason TaskA here != ram.test.ai.task.TaskA
-        self.TaskAcls = resolve('ram.test.ai.task.TaskA')
-        self.TaskBcls = resolve('ram.test.ai.task.TaskB')
-        self.TaskCcls = resolve('ram.test.ai.task.TaskC')
-        self.BRecoverycls = resolve('ram.test.ai.task.BRecovery')
-        self.CRecoverycls = resolve('ram.test.ai.task.CRecovery')
+        # Create our task manager which tells the current state what the next
+        # state is
+        self.taskManager = task.TaskManager(taskOrder = taskOrder,
+                                       failureTasks = failureTasks)
+
+        # Now create our state machine, making sure to pass along the
+        # taskManager so that Task state have access to it
+        self.machine = state.Machine(
+            statevars = {'taskManager' : self.taskManager})
+
+        # These are set as object variables for historical reasons
+        self.TaskAcls = TaskA
+        self.TaskBcls = TaskB
+        self.TaskCcls = TaskC
+        self.BRecoverycls = BRecovery
+        self.CRecoverycls = CRecovery
         
     def testNextTransitions(self):
         """
@@ -125,18 +112,18 @@ class TestTask(support.AITestCase):
         next states.
         """
         
-        taskA = self.TaskAcls(ai = self.ai)
+        taskA = self.TaskAcls(taskManager = self.taskManager)
         self.assertEqual(self.TaskBcls, taskA.transitions()[EVENT_A])
         self.assertEqual(self.TaskBcls, taskA.transitions()[EVENT_B])
-        taskB = self.TaskBcls(ai = self.ai)
+        taskB = self.TaskBcls(taskManager = self.taskManager)
         self.assertEqual(self.TaskCcls, taskB.transitions()[EVENT_C])
         self.assertEqual(self.TaskCcls, taskB.transitions()[EVENT_D])
-        taskC = self.TaskCcls(ai = self.ai)
+        taskC = self.TaskCcls(taskManager = self.taskManager)
         self.assertEqual(task.End, taskC.transitions()[EVENT_E])
         self.assertEqual(task.End, taskC.transitions()[EVENT_F])
         
     def _injectEvent(self, etype):
-        event = core.Event()
+        event = state.Event()
         event.type = etype
         self.machine.injectEvent(event)
         
@@ -168,57 +155,57 @@ class TestTask(support.AITestCase):
         self._injectEvent(EVENT_C_FAIL)
         self.assertEquals(self.CRecoverycls, type(self.machine.currentState()))
         
-    def testDefaultTimeout(self):
-        """
-        Tests normal timeout procedure
-        """
-        self._timeoutTest(self.TaskAcls, self.TaskBcls, TaskA.DEFAULT_TIMEOUT)
+#    def testDefaultTimeout(self):
+#        """
+#        Tests normal timeout procedure
+#        """
+#        self._timeoutTest(self.TaskAcls, self.TaskBcls, TaskA.DEFAULT_TIMEOUT)
         
-    def testCfgTimeout(self):
-        """
-        Tests to make sure the timeout value was read from the cfg properly
-        """
-        self._timeoutTest(self.TaskBcls, self.TaskCcls, TestTask.CFG_TIMEOUT)
+#    def testCfgTimeout(self):
+#        """
+#        Tests to make sure the timeout value was read from the cfg properly
+#        """
+#        self._timeoutTest(self.TaskBcls, self.TaskCcls, TestTask.CFG_TIMEOUT)
     
-    def testStopTimer(self):
-        """
-        Tests to make sure the time doesn't fire when the state exits
-        """
+#    def testStopTimer(self):
+#        """
+#        Tests to make sure the time doesn't fire when the state exits
+#        """
         # Register for the timer
-        self._timerFired = False
-        def timerHandler(event):
-            self._timerFired = True
-        self.eventHub.subscribeToType(self.TaskAcls(ai = self.ai).timeoutEvent,
-                                      timerHandler)
+#        self._timerFired = False
+#        def timerHandler(event):
+#            self._timerFired = True
+#        self.eventHub.subscribeToType(self.TaskAcls(taskManager = self.taskManager).timeoutEvent,
+#                                      timerHandler)
         
         # Start up and make sure we are in the proper state
-        self.machine.start(self.TaskAcls)
-        startState = self.machine.currentState()
-        self.assertEquals(self.TaskAcls, type(startState))
+#        self.machine.start(self.TaskAcls)
+#        startState = self.machine.currentState()
+#        self.assertEquals(self.TaskAcls, type(startState))
         
         # Move to the next state
-        self._injectEvent(EVENT_A)
-        cstate = self.machine.currentState()
-        self.assertEquals(self.TaskBcls, type(cstate))
+#        self._injectEvent(EVENT_A)
+#        cstate = self.machine.currentState()
+#        self.assertEquals(self.TaskBcls, type(cstate))
         
         # Release the timer and make sure it *wasn't* called
-        self.releaseTimer(startState.timeoutEvent)
-        self.assertEqual(False, self._timerFired)
+#        self.releaseTimer(startState.timeoutEvent)
+#        self.assertEqual(False, self._timerFired)
         
     
-    def _timeoutTest(self, startState, expectedEndState, expectedTimeout):
-        """
-        Helper function for testing whether or not the timeout timer works
-        """
+#    def _timeoutTest(self, startState, expectedEndState, expectedTimeout):
+#        """
+#        Helper function for testing whether or not the timeout timer works
+#        """
         # Start up and make sure we are in the proper state
-        self.machine.start(startState)
-        cstate = self.machine.currentState()
-        self.assertEquals(startState, type(cstate))
+#        self.machine.start(startState)
+#        cstate = self.machine.currentState()
+#        self.assertEquals(startState, type(cstate))
         
         # Ensure that the time was read correctly
-        self.assertEqual(expectedTimeout, cstate.timeoutDuration)
+#        self.assertEqual(expectedTimeout, cstate.timeoutDuration)
         
         # Release timer and make sure we are in the right state
-        self.releaseTimer(cstate.timeoutEvent)
-        cstate = self.machine.currentState()
-        self.assertEquals(expectedEndState, type(cstate))
+#        self.releaseTimer(cstate.timeoutEvent)
+#        cstate = self.machine.currentState()
+#        self.assertEquals(expectedEndState, type(cstate))
