@@ -1,0 +1,17 @@
+entering A
+Machine started
+Loop back, myVar: 5
+Leaving A
+Transition on event 'TO_B', myVar: 10
+entering B
+Leaving B
+going to 'A' state
+entering A
+<class '__main__.StateA'>
+Leaving A
+Transition on event 'TO_B', myVar: 5
+entering B
+Leaving B
+going to the 'End' state
+entering end
+exiting end

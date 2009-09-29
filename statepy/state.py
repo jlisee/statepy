@@ -56,6 +56,8 @@ def declareEventType(name):
     
     It defines it in the following format: <file>:<line> <EVENT>
     
+    @note All spaces in the string will be replace with '_' 
+    
     @rtype : str
     @return: The new event type
     """
@@ -64,7 +66,7 @@ def declareEventType(name):
         frame = stack[1][0]
         line = frame.f_lineno
         fileName = frame.f_code.co_filename
-        return '%s:%d %s' % (fileName, line, name.replace(' ', '_').upper())
+        return '%s:%d %s' % (fileName, line, name.replace(' ', '_'))
     finally:
         del stack
 
@@ -76,6 +78,9 @@ class State(object):
     def __init__(self, **statevars):
         for name, statevar in statevars.iteritems():
             setattr(self, name, statevar)
+
+        # TODO: check my own transition table to make sure none of the
+        #       transitions are actual member functions
 
     @staticmethod
     def transitions():
@@ -429,7 +434,7 @@ class Machine(object):
         return self._branches
 
     @staticmethod
-    def writeStateGraph(fileobj, state, ordered = False, noLoops = False):
+    def writeStateGraph(fileobj, startState, ordered = False, noLoops = False):
         """
         Write the graph of the state machine starting at the given state to
         the fileobj.
@@ -438,8 +443,8 @@ class Machine(object):
         @param fileobj: The object to write the result graph to (ie:
                         fileobject.write(graphtext))
        
-        @type  state: ram.ai.state.State
-        @param state: The state to start the graph at
+        @type  startState: ram.ai.state.State
+        @param startState: The state to start the graph at
         
         @type  ordered: boolean
         @param ordered: Whether or not to alphabetize the states
@@ -448,7 +453,8 @@ class Machine(object):
         stateTransitionList = []
         traversedStates = []
         
-        Machine._traverse(state, stateTransitionList, traversedStates, noLoops)
+        Machine._traverse(startState, stateTransitionList, traversedStates,
+                          noLoops)
         
         # Sort list for determinism
         if ordered:

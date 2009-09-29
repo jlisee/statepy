@@ -30,6 +30,7 @@
 # STD Imports
 import unittest
 import StringIO
+import inspect
 
 # Project Imports
 import statepy.state as state
@@ -173,9 +174,30 @@ class SecondParent(state.State):
     
     def enter(self):
         self.stateMachine.start(state.Branch(First))
+
+# --------------------------------------------------------------------------- #
+#                     T E S T   F R E E   F U N C T I O N S                   #
+# --------------------------------------------------------------------------- #
+
+class TestFreeFunctions(unittest.TestCase):
+    
+    # The following was taken from the python cookbook reciepe: 145297
+    def lineno(self):
+        """Returns the current line number in our program."""
+        return inspect.currentframe().f_back.f_lineno
+
+    
+    def testDeclareEventType(self):
+        fileName = __file__
+        expectedLineNum = str(self.lineno() + 1)
+        evtType = state.declareEventType("An Event")
+
+        expectedResult = fileName + ":" + expectedLineNum + " " + "An_Event"
+        self.assertEquals(expectedResult, evtType)
+        
     
 # --------------------------------------------------------------------------- #
-#                                 T E S T S                                   #
+#                         T E S T   M A C H I N E                             #
 # --------------------------------------------------------------------------- #
 
 class TestStateMachine(unittest.TestCase):
@@ -215,6 +237,10 @@ class TestStateMachine(unittest.TestCase):
         # Make sure the transition function was called
         self.assertNotEquals(None, startState.event)
         self.assertEquals(startState.event.value, 1)
+
+        # Now make sure we can inject events with the type directly
+        self.machine.injectEvent(MockEventSource.ANOTHER_EVT)
+        self.assertEquals(Start, type(self.machine.currentState()))
 
     def testStop(self):
         # No States
@@ -344,8 +370,7 @@ class TestStateMachine(unittest.TestCase):
         self.assertNotEquals(None, startState.thingUpdatedEvent)
         self.assertEquals(startState.thingUpdatedEvent.value, 4)
 
-    # TODO: test variable passing
-    def testSubsystemPassing(self):
+    def testStatevars(self):
         vara = "A"
         varB = 10
         statevars = {"a" : vara, "B" : varB}
@@ -354,11 +379,33 @@ class TestStateMachine(unittest.TestCase):
         machine.start(Start)
         startState = machine.currentState()
         
-        # Check for subsystems
-        self.assert_(hasattr(startState, 'a'))
-        self.assertEquals(vara, startState.a)
-        self.assert_(hasattr(startState, 'B'))
-        self.assertEquals(varB, startState.B)
+        # Check for variables
+        def testForVars():
+            self.assert_(hasattr(startState, 'a'))
+            self.assertEquals(vara, startState.a)
+            self.assert_(hasattr(startState, 'B'))
+            self.assertEquals(varB, startState.B)
+        testForVars()
+
+        # Now test with the start functionality
+        varcc = [1, 2, 3]
+        machine.start(Start, statevars = {'cc' : varcc})
+        startState = machine.currentState()
+
+        # Check to make sure all the old ones are still there
+        testForVars()
+
+        # Make sure we got them updated
+        self.assert_(hasattr(startState, 'cc'))
+        self.assertEquals(varcc, startState.cc)
+
+        # Now restart without those vars and make sure they don't exist
+        machine.start(Start)
+        startState = machine.currentState()
+
+        self.assertFalse(hasattr(startState, 'cc'))
+        testForVars()
+
             
     def testWriteGraph(self):
         mockFile = StringIO.StringIO()
@@ -483,6 +530,10 @@ class TestStateMachine(unittest.TestCase):
         
         cstate = branch.currentState()
         self.assertEqual(First, type(cstate))
+
+# --------------------------------------------------------------------------- #
+#                           T E S T    S T A T E                              #
+# --------------------------------------------------------------------------- #
                 
 # Testing of State Class
 class TestState(unittest.TestCase):

@@ -59,7 +59,7 @@ setup(name ='StatePy',
       url = 'http://bitbucket.org/jlisee/statepy',
       packages =['statepy', 'statepy.test'],
       classifiers = [
-        'Development Status :: 4 - Beta',
+        'Development Status :: 3 - Alpha',
         'Environment :: Console',
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',

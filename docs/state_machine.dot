@@ -1,0 +1,9 @@
+digraph aistate {
+__main___StateA [label=StateA,shape=ellipse]
+__main___StateB [label=StateB,shape=ellipse]
+__main___StateEnd [label=StateEnd,shape=doubleoctagon]
+__main___StateA -> __main___StateB [label=TO_B_HANDLE,style=solid]
+__main___StateB -> __main___StateEnd [label=TO_END,style=solid]
+__main___StateB -> __main___StateA [label=TO_A_HANDLE,style=solid]
+__main___StateA -> __main___StateA [label=LOOP_HANDLE,style=solid]
+}
