@@ -26,6 +26,11 @@
 # Author: Joseph Lisee
 # File:  statepy/test/__init__.py
 
+def runTests():
+    """ Runs all the package tests """
+    from statepy.test import main
+    main.main()
+
 
 # Note This code is borrowed from Trac:
 #

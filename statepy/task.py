@@ -125,7 +125,7 @@ class Task(state.State):
     def __init__(self, **statevars):
         # Call the super class
         state.State.__init__(self, **statevars)
-        print statevars
+
         # Ensure that we have a task manager present
         if not statevars.has_key(Task.TASK_MANAGER_NAME):
             msg = 'No TaskManager of name "%s" provided to Task State' % Task.TASK_MANAGER_NAME

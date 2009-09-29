@@ -1,0 +1,61 @@
+This is StatePy version 0.1.0
+=============================
+
+Copyright (c) 2009 Joseph Lisee
+All rights reserved.
+
+
+License information
+-------------------
+
+See the file "LICENSE" for information on the history of this software, terms &
+ conditions for usage, and a DISCLAIMER OF ALL WARRANTIES.
+
+
+Quick Install
+-------------
+
+Run "python setup.py install" to install to the directory or "python setup.py 
+install --prefix=<install_directory>" for the directory of your choice.
+
+
+What is StatePy anyways?
+------------------------
+
+StatePy is an event driven hierarchical finite state machine library that 
+lets you easily design, build, and analyze state machines.  It represents 
+individuals states as classes, and by default uses static transition tables.  
+The tables are simple python dicts maping events, which can be any hashable
+type, to the next state. Member functions of the state classes are called upon
+entering, upon exiting, and on every transition.  To learn more check out the
+documentation.
+
+
+Documentation
+-------------
+
+See the docs folder for examples of StatePy's features.
+
+
+Web site
+---------
+
+Check out http://bitbucket.org/jlisee/statepy for the latest releases and 
+news.
+
+
+Bug reports
+-----------
+
+To report or search for a bug please use the BitBucket based bug tracker at:
+http://bitbucket.org/jlisee/statepy/issues
+
+
+Tests
+-----
+
+StatePy comes with a relatively complete, ~95% line coverage, set of unit tests 
+which can be run with the simple command "python setup.py test".  If you have 
+installed StatePy already you can use the function "statepy.test.runTests()" to
+run the tests at any time you desire.  If you submit a feature/patch, you should
+include a tests for it as well.
