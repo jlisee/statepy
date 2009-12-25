@@ -26,7 +26,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Author: Joseph Lisee
-# File: setup.py
+# File: basics.py
 
 # Python Imports
 import sys
