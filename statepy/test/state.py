@@ -309,6 +309,9 @@ class TestStateMachine(unittest.TestCase):
 #        self.assertEquals(endName, enterRecv.event.string)
 #        self.assertEquals(endName, exitRecv.event.string)
 
+
+# NOTE: No event system in stand alone StatePy so these sections are disabled
+
 #    def testEvents(self):
 #        enterRecv = Reciever()
 #        exitRecv = Reciever()

@@ -107,6 +107,7 @@ class TaskManager(state.State):
         return self._failureTaskMap.get(task, None)
 
     
+# NOTE: Timeout and Events not in stand alone StatePy so sections disabled
 
 class Task(state.State):
     """
