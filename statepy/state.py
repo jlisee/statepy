@@ -89,12 +89,13 @@ class State(object):
         """
         return {}
 
-    @staticmethod
-    def getattr():
-        """
-        Returns the possible config values of the state
-        """
-        return set([])
+    # TODO: Config functionality not yet ported
+#    @staticmethod
+#    def getattr():
+#        """
+#        Returns the possible config values of the state
+#        """
+#        return set([])
 
     def enter(self):
         """
@@ -124,7 +125,9 @@ class End(State):
     intended to be that way.
     """
     def __init__(self, config = None, **kwargs):
-        State.__init__(self, config, **kwargs)
+        # TODO: config functionality not yet ported
+        #State.__init__(self, config, **kwargs)
+        State.__init__(self, **kwargs)
 
 class Branch(object):
     """

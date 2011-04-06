@@ -541,6 +541,21 @@ class TestState(unittest.TestCase):
         s = state.State(a = 5, bob = 'A')
         self.assertEqual(5, s.a)
         self.assertEqual('A', s.bob)
+
+# --------------------------------------------------------------------------- #
+#                             T E S T    E N D                                #
+# --------------------------------------------------------------------------- #
+
+class TestEndEnd(state.End):
+    """End test state"""
+    def __init__(self):
+        state.End.__init__(self)
+                
+# Testing of End Class
+class TestEnd(unittest.TestCase):
+    def testinit(self):
+        a = TestEndEnd()
+
                 
 if __name__ == '__main__':
     unittest.main()
