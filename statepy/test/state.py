@@ -31,6 +31,7 @@
 import unittest
 import StringIO
 import inspect
+import os.path
 
 # Project Imports
 import statepy.state as state
@@ -188,7 +189,8 @@ class TestFreeFunctions(unittest.TestCase):
 
     
     def testDeclareEventType(self):
-        fileName = __file__
+        # Make sure the path always ends in .py
+        fileName = os.path.splitext(__file__)[0] + ".py"
         expectedLineNum = str(self.lineno() + 1)
         evtType = state.declareEventType("An Event")
 

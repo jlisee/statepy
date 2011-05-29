@@ -66,6 +66,11 @@ def declareEventType(name):
         frame = stack[1][0]
         line = frame.f_lineno
         fileName = frame.f_code.co_filename
+        
+        # Make .py vs .pyc files have the same event names
+        if fileName.endswith('.pyc'):
+            fileName = fileName[:-3] + '.py'
+
         return '%s:%d %s' % (fileName, line, name.replace(' ', '_'))
     finally:
         del stack
